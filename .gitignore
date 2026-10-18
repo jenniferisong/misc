@@ -1,0 +1,4 @@
+manhwa/data/
+manhwa/_site/
+__pycache__/
+.pytest_cache/

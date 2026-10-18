@@ -1,0 +1,71 @@
+name: Update manhwa tracker
+
+on:
+  schedule:
+    - cron: "23 */3 * * *"   # every 3 hours
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "manhwa/**"
+      - ".github/workflows/manhwa.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: manhwa-tracker
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: manhwa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pytest
+
+      - name: Test the merge code
+        run: python -m pytest -q tests
+
+      # The cache holds recent updates and series details between runs, so the
+      # data doesn't need to be committed. If it's ever lost, the next run just
+      # re-downloads series details (slower, ~20 min) and starts a fresh history.
+      - uses: actions/cache/restore@v4
+        with:
+          path: manhwa/data
+          key: manhwa-data-${{ github.run_id }}
+          restore-keys: manhwa-data-
+
+      - name: Fetch updates and build the site
+        run: python build.py
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: manhwa/data
+          key: manhwa-data-${{ github.run_id }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: manhwa/_site
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
