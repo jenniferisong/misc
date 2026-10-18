@@ -114,3 +114,31 @@ def test_chapters_sorted_newest_number_first_and_new_series_flag():
     [s] = merge.build_series(ups, {"1": {"type": "Manhwa", "title": "T"}}, {}, {})
     assert [c["chapter"] for c in s["chapters"]] == ["10.5", "9", ""]
     assert not s["is_new"]
+
+
+def test_anilist_title_match_is_exact_and_korean_only():
+    found = [
+        {"id": 1, "countryOfOrigin": "JP", "title": {"english": "The Boxer"}, "synonyms": []},
+        {"id": 2, "countryOfOrigin": "KR", "title": {"english": "The Boxer 2"}, "synonyms": []},
+        {"id": 3, "countryOfOrigin": "KR", "title": {"english": None, "romaji": "Deo Bokseo"}, "synonyms": ["the boxer!"]},
+    ]
+    assert merge.pick_anilist(["The Boxer"], found) == 3  # via synonym, punctuation ignored
+    assert merge.pick_anilist(["Boxer"], found) is None
+    assert merge.pick_anilist(["Other name", "Deo Bokseo"], found) == 3  # any MangaUpdates alt title works
+
+
+def test_title_search_match_supplies_official_links():
+    ups = merge.updates_from_mu([mu_release(5, "20", "Asura")])
+    mu_info = {"5": {"type": "Manhwa", "title": "T"}}
+    al_info = {77: {"title": {"english": "T"}, "externalLinks": [{"site": "WEBTOON", "url": "https://webtoons.com/t", "type": "STREAMING", "language": "English"}]}}
+    [s] = merge.build_series(ups, mu_info, {}, al_info, {"5": {"al": 77}})
+    assert s["official"] == [{"site": "WEBTOON", "url": "https://webtoons.com/t"}]
+
+
+def test_status_is_shortened():
+    assert merge.short_status("**S1:** 42 Chapters (001-042) **S2:** 37 Chapters (Ongoing) 121~") == "Ongoing"
+    assert merge.short_status("110 Chapters (Complete)") == "Completed"
+    assert merge.short_status("Season 2 on hiatus") == "Hiatus"
+    assert merge.short_status("ongoing") == "Ongoing"  # MangaDex style
+    assert merge.short_status("75 Chapters", completed=True) == "Completed"
+    assert merge.short_status(None) is None

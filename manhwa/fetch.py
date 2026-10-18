@@ -102,6 +102,7 @@ def mu_series(series_id):
         "completed": d.get("completed"),
         "genres": [g["genre"] for g in d.get("genres") or []],
         "rating": d.get("bayesian_rating"),
+        "names": [d.get("title")] + [a["title"] for a in d.get("associated") or []],
         "cover": ((d.get("image") or {}).get("url") or {}).get("original"),
     }
 
@@ -202,6 +203,24 @@ def al_media(ids):
         d = get_json("anilist", AL, {"query": query, "variables": {"ids": ids[i : i + 50]}})
         for m in d["data"]["Page"]["media"]:
             out[m["id"]] = m
+    return out
+
+
+def al_search(titles):
+    """Search AniList for each title; returns one candidate list per title.
+
+    Ten searches go in each request (as GraphQL aliases) to stay under the rate limit.
+    """
+    out = []
+    for i in range(0, len(titles), 10):
+        batch = titles[i : i + 10]
+        params = ", ".join(f"$t{j}: String" for j in range(len(batch)))
+        fields = " ".join(
+            f"t{j}: Page(perPage: 5) {{ media(search: $t{j}, type: MANGA) {{ id countryOfOrigin title {{ english romaji }} synonyms }} }}"
+            for j in range(len(batch))
+        )
+        d = get_json("anilist", AL, {"query": f"query ({params}) {{ {fields} }}", "variables": {f"t{j}": t for j, t in enumerate(batch)}})
+        out += [d["data"][f"t{j}"]["media"] for j in range(len(batch))]
     return out
 
 

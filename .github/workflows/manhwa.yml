@@ -40,7 +40,7 @@ jobs:
 
       # The cache holds recent updates and series details between runs, so the
       # data doesn't need to be committed. If it's ever lost, the next run just
-      # re-downloads series details (slower, ~20 min) and starts a fresh history.
+      # re-downloads series details over a few runs and starts a fresh history.
       - uses: actions/cache/restore@v4
         with:
           path: manhwa/data

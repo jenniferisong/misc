@@ -37,6 +37,36 @@ def iso(t):
     return t.astimezone(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def title_key(title):
+    """'Cassmire: The Loyal Sword!' -> 'cassmiretheloyalsword', for exact title comparison."""
+    return re.sub(r"[\W_]+", "", (title or "").casefold())
+
+
+def pick_anilist(names, candidates):
+    """The AniList id among search results whose title exactly matches one of `names`, or None.
+
+    Only Korean series count, and only exact (punctuation-insensitive) matches,
+    so a near miss shows no official links rather than the wrong ones.
+    """
+    wanted = {title_key(n) for n in names if title_key(n)}
+    for m in candidates:
+        if m.get("countryOfOrigin") != "KR":
+            continue
+        titles = [(m.get("title") or {}).get("english"), (m.get("title") or {}).get("romaji")] + (m.get("synonyms") or [])
+        if wanted & {title_key(t) for t in titles}:
+            return m["id"]
+    return None
+
+
+def short_status(text, completed=None):
+    """MangaUpdates' free-text status ('**S1:** 42 Chapters (001-042)… (Ongoing)') -> 'Ongoing'."""
+    t = (text or "").casefold()
+    for word, label in (("hiatus", "Hiatus"), ("ongoing", "Ongoing"), ("cancel", "Cancelled"), ("complete", "Completed")):
+        if word in t:
+            return label
+    return "Completed" if completed else None
+
+
 def chapter_number(ch):
     try:
         return float(re.match(r"\d+(\.\d+)?", ch or "").group())
@@ -137,7 +167,16 @@ def group_chapters(updates):
     )
 
 
-def build_series(updates, mu_info, md_info, al_info):
+def anilist_id(key, md, al_match):
+    """AniList id from MangaDex's link if there is one, else from the title search."""
+    al_id = (md or {}).get("links", {}).get("al")
+    if al_id and al_id.isdigit():
+        return int(al_id)
+    return (al_match.get(key.removeprefix("mu:")) or {}).get("al") if key.startswith("mu:") else None
+
+
+def build_series(updates, mu_info, md_info, al_info, al_match=None):
+    al_match = al_match or {}
     by_series = {}
     for u in updates:
         by_series.setdefault(u["series"], []).append(u)
@@ -149,8 +188,7 @@ def build_series(updates, mu_info, md_info, al_info):
         mu = mu_info.get(key.removeprefix("mu:")) if key.startswith("mu:") else None
         md_id = next((u["md_id"] for u in ups if u.get("md_id")), key.removeprefix("md:") if key.startswith("md:") else None)
         md = md_info.get(md_id) if md_id else None
-        al_id = (md or {}).get("links", {}).get("al")
-        al = al_info.get(int(al_id)) if al_id and al_id.isdigit() else None
+        al = al_info.get(anilist_id(key, md, al_match))
 
         al_title = ((al or {}).get("title") or {})
         numbers = [n for n in (chapter_number(u["chapter"]) for u in ups) if n is not None]
@@ -160,7 +198,7 @@ def build_series(updates, mu_info, md_info, al_info):
                 "title": al_title.get("english") or (mu or {}).get("title") or (md or {}).get("title") or ups[0].get("title", "Untitled"),
                 "cover": ((al or {}).get("coverImage") or {}).get("large") or (mu or {}).get("cover") or (md or {}).get("cover"),
                 "genres": (al or {}).get("genres") or (mu or {}).get("genres") or (md or {}).get("genres") or [],
-                "status": (mu or {}).get("status") or (md or {}).get("status"),
+                "status": short_status((mu or {}).get("status") or (md or {}).get("status"), (mu or {}).get("completed")),
                 "rating": (mu or {}).get("rating"),
                 "score": (al or {}).get("averageScore"),
                 "popularity": (al or {}).get("popularity"),

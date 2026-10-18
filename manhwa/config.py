@@ -24,6 +24,14 @@ TRENDING_COUNT = 24
 # Seconds to wait between calls to the same API, to stay well under rate limits.
 PAUSE_SECONDS = {"mangaupdates": 1.0, "mangadex": 0.3, "anilist": 1.0}
 
+# Most MangaUpdates series lookups per run (each takes 1-3 s). The first run
+# needs ~2,500, so it fills in over a few runs; after that it's a few dozen per run.
+MAX_SERIES_LOOKUPS = 700
+
+# Most AniList title searches per run (they find official reading links for
+# series MangaDex doesn't cover). Ten go in each request.
+MAX_ANILIST_SEARCHES = 400
+
 # How long cached series details (type, genres, cover) are trusted before re-fetching.
 SERIES_CACHE_DAYS = 30
 

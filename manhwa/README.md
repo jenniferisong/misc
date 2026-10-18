@@ -14,8 +14,9 @@ same way as [korea-chips](https://github.com/jenniferisong/korea-chips).
 | [MangaDex](https://mangadex.org) | New English chapters of Korean-original series, with links to read them. |
 | [AniList](https://anilist.co) | Official places to read each series (Webtoon, Tapas, Kakao, Naver…), scores, and the "Trending" row. |
 
-The sites are matched by ID, not by title: MangaDex stores each series'
-MangaUpdates and AniList IDs. When two groups release the same chapter, it shows
+The sites are matched by ID where possible: MangaDex stores each series'
+MangaUpdates and AniList IDs. Otherwise a series is looked up on AniList by its
+MangaUpdates titles, and only an exact title match with a Korean series is used. When two groups release the same chapter, it shows
 as one row with both links. The orange **Read on …** buttons go to official
 publishers.
 
@@ -43,7 +44,7 @@ publishers.
 
 ```
 cd manhwa
-python build.py                         # first run ~20 min (looks up each series once); later runs ~1 min
+python build.py                         # first runs ~30 min each while series details fill in; then ~2 min
 python -m http.server -d _site 8000     # open http://localhost:8000
 python -m pytest -q tests               # pip install pytest
 ```
